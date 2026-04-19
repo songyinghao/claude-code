@@ -1,115 +1,131 @@
 ---
-title: "架构全景 - Claude Code 五层架构详解"
-description: "从交互层到基础设施层，详解 Claude Code 的五层架构设计。基于 src/main.tsx、src/QueryEngine.ts、src/query.ts、src/tools.ts、src/services/api/claude.ts 的源码级数据流分析。"
-keywords: ["Claude Code 架构", "五层架构", "QueryEngine", "Agentic Loop", "数据流"]
+title: "架构总览"
+description: "从交互层到通信层，理解 Claude Code 的五层架构设计。每层的职责、边界和设计考量。"
+keywords: ["Claude Code 架构", "五层架构", "Agentic Loop", "数据流"]
+og:image: "https://ccb.agent-aura.top/docs/images/og-cover.png"
 ---
-
-{/* 本章目标：一张图讲清楚整体架构，为后续章节建立坐标系 */}
 
 ## 五层架构
 
-Claude Code 从上到下分为五个层次，每一层职责清晰、边界分明：
+Claude Code 从上到下分为五个层次。每一层职责清晰、边界分明，层与层之间通过明确的接口通信。
 
 <Frame caption="Claude Code 五层架构">
   <img src="/docs/images/architecture-layers.png" alt="Claude Code 五层架构图" />
 </Frame>
 
-| 层次 | 职责 | 入口源码 | 关键词 |
-|------|------|---------|--------|
-| **交互层** | 终端 UI、用户输入、消息展示 | `src/screens/REPL.tsx` | React/Ink、PromptInput |
-| **编排层** | 多轮对话、会话持久化、成本追踪 | `src/QueryEngine.ts` | QueryEngine、transcript |
-| **核心循环层** | 单轮：发请求 → 拿响应 → 执行工具 → 循环 | `src/query.ts` | Agentic Loop、State |
-| **工具层** | AI 的"双手"——读写文件、执行命令 | `src/tools.ts` → `src/Tool.ts` | Tool 接口、MCP |
-| **通信层** | 与 Claude API 的流式通信 | `src/services/api/claude.ts` | Streaming、Provider |
+| 层次 | 职责 | 设计考量 |
+|------|------|----------|
+| **交互层** | 终端 UI、用户输入、消息展示 | 为什么用 React/Ink 而不是 readline？因为需要组件化渲染工具权限确认、进度条等复杂 UI |
+| **编排层** | 多轮对话管理、会话持久化、成本追踪 | 为什么需要独立的编排层？因为 agentic loop 本身不应该关心"会话保存"和"token 计费" |
+| **核心循环层** | 单轮：发请求 → 拿响应 → 执行工具 → 循环 | 这是整个系统的心脏。为什么用 AsyncGenerator？因为流式输出需要逐步 yield，工具执行需要可取消 |
+| **工具层** | AI 的"双手"——读写文件、执行命令等 50+ 工具 | 为什么工具是独立层？因为工具可以动态增减（MCP 扩展），不应该硬编码在核心循环中 |
+| **通信层** | 与 Claude API 的流式通信 | 为什么支持 7 种 Provider？因为不同用户使用不同的 API 端点（直连、AWS Bedrock、Google Vertex 等） |
 
-## 一条主数据流的源码追踪
+### 层间通信原则
+
+- **交互层 → 编排层**：用户消息和指令（如斜杠命令）
+- **编排层 → 核心循环层**：上下文参数（消息历史、工具列表、权限上下文）
+- **核心循环层 → 工具层**：工具调用请求（工具名 + 参数）
+- **工具层 → 核心循环层**：工具执行结果
+- **核心循环层 → 通信层**：API 请求（消息数组 + 系统提示 + 工具定义）
+- **通信层 → 核心循环层**：流式响应事件
+
+每层只依赖下一层的接口，不跨层访问。这种约束使得：
+- 通信层可以替换 Provider 而不影响核心循环
+- 工具层可以新增工具而不影响编排逻辑
+- 交互层可以替换为 Web UI 而不影响底层
+
+## 核心数据流
 
 <Frame caption="核心数据流">
   <img src="/docs/images/data-flow.png" alt="Claude Code 核心数据流" />
 </Frame>
 
-整个系统的运转可以浓缩为一条核心数据流，以下是每一步对应的源码路径：
+整个系统的运转可以浓缩为一条循环数据流。以下是每一步的设计意图：
 
-### 1. 用户输入 → REPL
+### 1. 用户输入 → 交互层
 
-`src/screens/REPL.tsx` 是基于 React/Ink 的终端 UI 组件。用户输入经 `processUserInput()`（`src/utils/processUserInput/processUserInput.ts`）处理，支持斜杠命令、文件附件、图片等。
+用户输入经过预处理管道：斜杠命令解析、文件附件处理、图片编码等。设计上，输入处理是可扩展的——新的输入类型（如语音）只需要在预处理管道中添加一个处理器。
 
-### 2. QueryEngine 编排
+### 2. 交互层 → 编排层
 
-`src/QueryEngine.ts` 是 REPL 与 `query()` 之间的中间层，管理：
-- **会话状态**：消息数组、工具权限上下文（`ToolPermissionContext`）、文件历史快照
-- **成本追踪**：`accumulateUsage()` / `getTotalCost()` 累计 token 用量
-- **Transcript 持久化**：`recordTranscript()` 将对话序列化到磁盘，支持 `--resume`
-- **文件历史**：`fileHistoryMakeSnapshot()` 在修改前创建快照，支持 undo
+编排层是会话的"大脑"。它管理三类关键状态：
+- **对话状态**：消息数组、工具权限上下文——决定 AI 看到什么
+- **成本状态**：token 用量累计——决定何时触发压缩或警告用户
+- **持久化状态**：对话序列化到磁盘——支持会话恢复和 undo
 
-关键方法：`queryEngine.query()` 构造 `QueryParams`，调用 `query()` 异步生成器。
+### 3. 编排层 → 核心循环（Agentic Loop）
 
-### 3. Agentic Loop（`src/query.ts`）
-
-`query()` 是一个 `AsyncGenerator`，`while(true)` 循环的每次迭代包含：
+核心循环是一个 `while(true)` 的迭代：
 
 ```
-① 上下文预处理管道：
-   applyToolResultBudget → snipCompact → microcompact → contextCollapse → autocompact
-
-② 流式 API 调用：
-   deps.callModel() → AsyncGenerator<StreamEvent | Message>
-   收集 assistantMessages[]、toolUseBlocks[]
-
-③ 工具执行：
-   StreamingToolExecutor（并行） 或 runTools（串行）
-   → toolResults[]
-
-④ 终止/继续判定：
-   needsFollowUp ? continue : return { reason }
+上下文预处理 → API 调用 → 解析响应 → 工具执行 → 结果回传 → 再次调用 → 循环
 ```
 
-完整的状态机通过 `State` 类型（`src/query.ts:207`）在迭代间传递，包含 10 个字段（messages、autoCompactTracking、maxOutputTokensRecoveryCount 等）。
+**上下文预处理管道**是循环中最精巧的部分。在每次 API 调用前，系统会依次检查：
+- 单条工具输出是否过长 → 截断
+- 对话历史是否接近 token 上限 → 自动压缩
+- 是否需要紧急压缩 → API 返回 token 超限错误时触发
 
-### 4. 工具层（`src/tools.ts` → `src/Tool.ts`）
+这套管道确保 AI 始终在有效的上下文窗口内工作。
 
-`getAllBaseTools()`（`src/tools.ts:195`）组装 50+ 工具列表，经过 `filterToolsByDenyRules()` 权限过滤后传给 API。
+### 4. 核心循环 → 工具层
 
-每个工具实现 `Tool<Input, Output, Progress>` 接口（`src/Tool.ts:368`），核心方法链：
-```
-validateInput() → canUseTool()（UI 层）→ checkPermissions() → call() → ToolResult
-```
+工具执行支持**并行和串行两种模式**。多个独立的工具调用可以并行执行（如同时读两个文件），有依赖关系的调用则串行执行。这个设计直接影响用户体验——并行意味着更快的响应速度。
 
-### 5. 通信层（`src/services/api/claude.ts`）
+### 5. 工具层 → 核心循环 → 通信层
 
-API 客户端支持 7 种 Provider：
-- **Anthropic Direct (firstParty)**：默认
-- **AWS Bedrock**：`ANTHROPIC_BEDROCK_BASE_URL`
-- **Google Vertex**：`ANTHROPIC_VERTEX_PROJECT_ID`
-- **Foundry**：`ANTHROPIC_CODE_USE_FOUNDRY`
-- **OpenAI**：兼容层
-- **Gemini**：兼容层
-- **Grok (xAI)**：兼容层
+工具执行结果回传到核心循环，拼入消息数组，再次调用 API。AI 根据工具结果决定：
+- 继续调用工具（任务未完成）
+- 返回最终回答（任务完成）
+- 请求用户输入（需要决策）
 
-`deps.callModel()` 发起流式请求，返回 `BetaRawMessageStreamEvent` 事件流。支持 Prompt Cache（`cache_control`）、thinking blocks、multi-turn tool use。
+### 6. 终止条件
+
+循环不是无限运行的。终止条件包括：
+- AI 不再请求工具调用（任务完成）
+- 用户主动中断
+- 达到最大 turn 数限制
+- Token 预算耗尽
 
 ## 四个核心设计原则
 
-<AccordionGroup>
-  <Accordion title="流式优先 (Streaming-first)">
-    所有 API 通信都是流式的——`deps.callModel()` 返回 AsyncGenerator，用户看到 AI "逐字打出"回答。StreamingToolExecutor 在流式过程中就开始并行执行工具，不等流结束。模型降级（Fallback）时，已收集的 assistantMessages 被标记为 tombstone 并清空，重试整个流式请求。
-  </Accordion>
-  <Accordion title="工具即能力 (Tool as Capability)">
-    每个工具是 `Tool<Input, Output, Progress>` 结构化类型，通过 `buildTool()` 工厂创建。`getTools()` 在每次 API 调用时组装（非全局缓存），因为 `isEnabled()` 可能随运行时状态变化。MCP 工具通过 `mcpInfo` 字段标记来源，支持 server 级别的 blanket deny。
-  </Accordion>
-  <Accordion title="权限即边界 (Permission as Boundary)">
-    每次工具调用经过 `validateInput() → checkPermissions()` 双重检查。权限规则从 5 个来源汇聚（session → project → user → managed → default），支持工具名、命令模式、路径前缀等匹配方式。Plan Mode 通过 `prepareContextForPlanMode()` 切换为只读模式，退出时自动恢复。
-  </Accordion>
-  <Accordion title="上下文即记忆 (Context as Memory)">
-    System Prompt 由 `fetchSystemPromptParts()` 动态组装，包含 CLAUDE.md、git 状态、日期、MCP 服务器列表。Auto-compact 在每轮迭代前评估 token 阈值，超出时触发压缩。压缩后的摘要通过 `buildPostCompactMessages()` 替换原始消息，`taskBudgetRemaining` 跨压缩边界累计。
-  </Accordion>
-</AccordionGroup>
+### 流式优先（Streaming-first）
 
-## 入口与引导
+所有 API 通信都是流式的。用户看到 AI "逐字打出"回答，工具执行在流式过程中就开始并行执行，不需要等流结束。
 
-| 入口 | 文件 | 说明 |
-|------|------|------|
-| CLI 启动 | `src/entrypoints/cli.tsx` | 注入 `feature()` polyfill（始终返回 false）、MACRO 全局变量 |
-| 命令定义 | `src/main.tsx` | Commander.js 解析参数，初始化 auth/analytics/policy |
-| 一次性初始化 | `src/entrypoints/init.ts` | 遥测配置、信任对话框 |
-| 管道模式 | `src/main.tsx` `-p` flag | `echo "say hello" \| bun run dev -p` |
+当模型需要降级（如从 Opus 降到 Sonnet）时，已收集的响应被标记为历史记录，整个流式请求重新发起。
+
+### 工具即能力（Tool as Capability）
+
+每个工具是一个结构化的类型定义，包含输入验证、权限检查和执行逻辑三个阶段。工具列表在每次 API 调用时动态组装（不是全局缓存），因为工具的可用性可能随运行时状态变化（如 MCP 服务器连接状态）。
+
+### 权限即边界（Permission as Boundary）
+
+每次工具调用经过"输入验证 → 权限检查"双重检查。权限规则从五个来源汇聚（会话级 → 项目级 → 用户级 → 管理级 → 默认级），优先级从高到低。
+
+这个分层设计意味着：团队可以为整个项目设置统一的权限策略（项目级），同时允许个人覆盖（用户级），管理员还可以强制执行安全策略（管理级）。
+
+### 上下文即记忆（Context as Memory）
+
+System Prompt 在每轮调用时动态组装，包含项目结构、git 状态、用户指令（CLAUDE.md）等信息。组装策略是"不变内容在前、变化内容在后"，利用 API 的前缀缓存机制减少重复计算。
+
+自动压缩在每轮迭代前评估 token 阈值，超出时用 AI 自身来总结之前的对话，保留语义信息的同时减少 token 占用。
+
+## 入口概览
+
+| 入口 | 说明 | 使用场景 |
+|------|------|----------|
+| CLI 启动 | 加载配置、认证、启动 REPL | 日常交互式使用 |
+| 管道模式 | 从 stdin 读取输入，输出到 stdout | 嵌入 CI/CD 和脚本 |
+| 远程控制 | 通过 Bridge API 远程控制 CLI | 从 claude.ai 或手机发送指令 |
+| Daemon 模式 | 长驻后台的 supervisor 进程 | 持续运行的自动化任务 |
+
+## 接下来
+
+现在你已经理解了整体架构。以下是推荐的深入路径：
+
+- **Agent Loop** — 深入核心循环的每一轮迭代细节
+- **工具系统** — 了解 50+ 工具的设计和分类
+- **上下文工程** — 理解 token 预算和自动压缩机制
+- **安全机制** — 了解权限模型和沙箱设计
