@@ -42,7 +42,7 @@ const mockGetDefaultAppState = mock(() => ({
     alwaysAllowRules: { user: [], project: [], local: [] },
     alwaysDenyRules: { user: [], project: [], local: [] },
     alwaysAskRules: { user: [], project: [], local: [] },
-    isBypassPermissionsModeAvailable: false,
+    isBypassPermissionsModeAvailable: true,
   },
   fastMode: false,
   settings: {},
