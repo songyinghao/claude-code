@@ -3,7 +3,7 @@ import { Dex } from '@pkmn/sim'
 import type { Creature, SpeciesId } from '../types'
 import { TO_DEX_STAT, FROM_DEX_STAT } from '../data/pkmn'
 import { STAT_NAMES } from '../types'
-import type { BattleState, BattlePokemon, BattleEvent, BattleResult, PlayerAction, MoveOption, StatusCondition } from './types'
+import type { BattleState, BattlePokemon, BattleEvent, PlayerAction, StatusCondition } from './types'
 import { chooseAIMove } from './ai'
 
 // ─── Adapter: Creature → Showdown Set ───
@@ -45,13 +45,23 @@ function wildPokemonToSetString(speciesId: SpeciesId, level: number): string {
 	return [species.name, `Level: ${level}`, `Ability: ${ability}`, ...moves.map(m => `- ${m}`)].join('\n')
 }
 
-function getSpeciesMoves(speciesId: string, level: number): string[] {
-	// Use @pkmn/sim move pool - get natural level-up moves
-	// This is a simplified approach for the sim
+function getSpeciesMoves(speciesId: string, _level: number): string[] {
+	// In @pkmn/sim, Dex.species doesn't expose learnsets directly.
+	// Use common moves that exist in the sim's data for basic battles.
+	// The actual move pool is resolved by the Battle engine during construction.
 	const species = Dex.species.get(speciesId)
 	if (!species) return ['Tackle']
-	// For sim battles, just return basic moves
-	return ['Tackle', 'Splash']
+	// Use type-appropriate basic moves as fallback
+	const type = species.types[0]?.toLowerCase() ?? 'normal'
+	const basicMoves: Record<string, string[]> = {
+		normal: ['Tackle', 'Scratch'],
+		fire: ['Ember', 'FireSpin'],
+		water: ['WaterGun', 'Bubble'],
+		grass: ['VineWhip', 'RazorLeaf'],
+		electric: ['ThunderShock', 'Spark'],
+		poison: ['PoisonSting', 'Smog'],
+	}
+	return basicMoves[type] ?? ['Tackle', 'Scratch']
 }
 
 // ─── State Projection ───
