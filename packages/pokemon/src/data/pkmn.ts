@@ -23,21 +23,6 @@ export function getSpecies(id: string) {
 	return gen.species.get(id)
 }
 
-/** Query move from Dex */
-export function getMove(id: string) {
-	return gen.moves.get(id)
-}
-
-/** Query ability from Dex */
-export function getAbility(id: string) {
-	return gen.abilities.get(id)
-}
-
-/** Query type from Dex */
-export function getType(id: string) {
-	return gen.types.get(id)
-}
-
 /** Map Dex baseStats to our StatName format */
 export function mapBaseStats(dexStats: { hp: number; atk: number; def: number; spa: number; spd: number; spe: number }): Record<StatName, number> {
 	const result = {} as Record<StatName, number>
@@ -51,9 +36,4 @@ export function mapBaseStats(dexStats: { hp: number; atk: number; def: number; s
 export function mapGenderRatio(genderRatio?: { M: number; F: number } | string): number {
 	if (!genderRatio || typeof genderRatio === 'string') return -1 // genderless
 	return Math.round(genderRatio.F * 8)
-}
-
-/** Get primary ability ID from Dex abilities object */
-export function getPrimaryAbility(abilities: Record<string, string>): string {
-	return abilities['0']?.toLowerCase() ?? ''
 }

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { FROM_DEX_STAT, TO_DEX_STAT, mapBaseStats, mapGenderRatio, getPrimaryAbility } from '../data/pkmn'
+import { FROM_DEX_STAT, TO_DEX_STAT, mapBaseStats, mapGenderRatio } from '../data/pkmn'
 
 describe('FROM_DEX_STAT', () => {
 	test('maps all 6 stats', () => {
@@ -42,15 +42,5 @@ describe('mapGenderRatio', () => {
 	test('calculates female ratio', () => {
 		expect(mapGenderRatio({ M: 0.875, F: 0.125 })).toBe(1) // 12.5% F → 1
 		expect(mapGenderRatio({ M: 0.5, F: 0.5 })).toBe(4)    // 50% F → 4
-	})
-})
-
-describe('getPrimaryAbility', () => {
-	test('returns first ability', () => {
-		expect(getPrimaryAbility({ '0': 'Overgrow', '1': 'Chlorophyll' })).toBe('overgrow')
-	})
-
-	test('returns empty string for missing ability', () => {
-		expect(getPrimaryAbility({})).toBe('')
 	})
 })
