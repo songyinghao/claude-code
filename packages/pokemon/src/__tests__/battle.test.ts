@@ -229,4 +229,76 @@ describe('chooseAIMove', () => {
 		expect(idx).toBeGreaterThanOrEqual(0)
 		expect(idx).toBeLessThan(aiPokemon.moves.length)
 	})
+
+	test('returns 0 when all moves have 0 PP', () => {
+		const pokemon = {
+			...makeTestCreature(),
+			moves: [
+				{ id: 'tackle', name: 'Tackle', type: 'Normal', pp: 0, maxPp: 35, disabled: false },
+			],
+		}
+		const idx = chooseAIMove(pokemon as any)
+		expect(idx).toBe(0) // Struggle fallback
+	})
+
+	test('skips disabled moves', () => {
+		const pokemon = {
+			...makeTestCreature(),
+			moves: [
+				{ id: 'tackle', name: 'Tackle', type: 'Normal', pp: 35, maxPp: 35, disabled: true },
+				{ id: 'scratch', name: 'Scratch', type: 'Normal', pp: 35, maxPp: 35, disabled: false },
+			],
+		}
+		const idx = chooseAIMove(pokemon as any)
+		expect(idx).toBe(1) // Only non-disabled move
+	})
+})
+
+describe('settleBattle - advanced', () => {
+	test('player win awards XP to creature', () => {
+		const creature = makeTestCreature({ level: 5 })
+		const data = makeTestBuddyData([creature])
+		const result = {
+			winner: 'player' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [creature.id],
+		}
+		const settlement = settleBattle(data, result, 'squirtle', 20)
+		expect(settlement.data.creatures[0]!.totalXp).toBeGreaterThan(0)
+	})
+
+	test('player win awards EVs (capped at 252 per stat)', () => {
+		const creature = makeTestCreature({
+			level: 5,
+			ev: { hp: 250, attack: 250, defense: 250, spAtk: 250, spDef: 250, speed: 250 },
+		})
+		const data = makeTestBuddyData([creature])
+		const result = {
+			winner: 'player' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [creature.id],
+		}
+		const settlement = settleBattle(data, result, 'squirtle', 20)
+		for (const stat of ['hp', 'attack', 'defense', 'spAtk', 'spDef', 'speed'] as const) {
+			expect(settlement.data.creatures[0]!.ev[stat]).toBeLessThanOrEqual(252)
+		}
+	})
+
+	test('player loss does not increment battlesWon', () => {
+		const creature = makeTestCreature()
+		const data = makeTestBuddyData([creature])
+		const result = {
+			winner: 'opponent' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [creature.id],
+		}
+		const settlement = settleBattle(data, result, 'squirtle', 20)
+		expect(settlement.data.stats.battlesWon).toBe(0)
+	})
 })
