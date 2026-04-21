@@ -39,6 +39,13 @@ export function BattleFlow({ buddyData: initialData, onClose }: BattleFlowProps)
 	const [pendingEvos, setPendingEvos] = useState<{ creatureId: string; from: SpeciesId; to: SpeciesId }[]>([])
 	const [replaceIndex, setReplaceIndex] = useState(0)
 
+	// Evolution phase input — must be at top level (React hooks rule)
+	useInput((_input: string, key: { return?: boolean }) => {
+		if (phase === 'evolution' && key.return) {
+			handleEvolutionConfirm()
+		}
+	})
+
 	// Config phase: start battle
 	const handleStartBattle = useCallback((speciesId: SpeciesId, level: number) => {
 		setOpponentSpeciesId(speciesId)
