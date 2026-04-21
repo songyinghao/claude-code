@@ -6,7 +6,7 @@
       "name": "claude-code-best",
       "dependencies": {
         "@agentclientprotocol/sdk": "^0.19.0",
-        "@claude-code-best/mcp-chrome-bridge": "^2.0.8",
+        "@claude-code-best/mcp-chrome-bridge": "^2.0.9",
         "ws": "^8.20.0",
       },
       "devDependencies": {
@@ -195,14 +195,13 @@
     },
     "packages/acp-link": {
       "name": "acp-link",
-      "version": "1.1.0",
+      "version": "2.0.0",
       "bin": {
         "acp-link": "dist/cli/bin.js",
-        "acp-manager": "dist/manager/bin.js",
       },
       "dependencies": {
         "@agentclientprotocol/sdk": "^0.19.0",
-        "@hono/node-server": "^1.13.8",
+        "@hono/node-server": "^2.0.0",
         "@hono/node-ws": "^1.0.5",
         "@stricli/auto-complete": "^1.2.4",
         "@stricli/core": "^1.2.4",
@@ -570,7 +569,7 @@
 
     "@claude-code-best/builtin-tools": ["@claude-code-best/builtin-tools@workspace:packages/builtin-tools"],
 
-    "@claude-code-best/mcp-chrome-bridge": ["@claude-code-best/mcp-chrome-bridge@2.0.8", "https://registry.npmmirror.com/@claude-code-best/mcp-chrome-bridge/-/mcp-chrome-bridge-2.0.8.tgz", { "dependencies": { "@fastify/cors": "^11.0.1", "@modelcontextprotocol/sdk": "^1.11.0", "chalk": "^5.4.1", "chrome-mcp-shared": "^1.0.2", "commander": "^13.1.0", "fastify": "^5.3.2", "is-admin": "^4.0.0", "pino": "^9.6.0", "uuid": "^11.1.0" }, "bin": { "mcp-chrome-bridge": "dist/cli.js", "mcp-chrome-stdio": "dist/mcp/mcp-server-stdio.js" } }, "sha512-f7J1e4PQ6qxXzdHwL7QRrMZ4lPfD/L1MWxWDbyHmHY7jaW2GL6WcArKpk/fApg3V/q0racqUWzXHQdpE/HJZqg=="],
+    "@claude-code-best/mcp-chrome-bridge": ["@claude-code-best/mcp-chrome-bridge@2.0.9", "", { "dependencies": { "@fastify/cors": "^11.0.1", "@modelcontextprotocol/sdk": "^1.11.0", "chalk": "^5.4.1", "chrome-mcp-shared": "^1.0.2", "commander": "^13.1.0", "fastify": "^5.3.2", "is-admin": "^4.0.0", "pino": "^9.6.0", "uuid": "^11.1.0" }, "bin": { "mcp-chrome-bridge": "dist/cli.js", "mcp-chrome-stdio": "dist/mcp/mcp-server-stdio.js" } }, "sha512-X10wK1sI3jFI8MlcG17jQVGgZo7TpasI911GtXGOXHWbbofFHJ+V0NScbJ6sy8XK0miJecD3OhUvG1uqvsKJwQ=="],
 
     "@claude-code-best/mcp-client": ["@claude-code-best/mcp-client@workspace:packages/mcp-client"],
 
@@ -666,7 +665,7 @@
 
     "@grpc/proto-loader": ["@grpc/proto-loader@0.8.0", "https://registry.npmmirror.com/@grpc/proto-loader/-/proto-loader-0.8.0.tgz", { "dependencies": { "lodash.camelcase": "^4.3.0", "long": "^5.0.0", "protobufjs": "^7.5.3", "yargs": "^17.7.2" }, "bin": { "proto-loader-gen-types": "build/bin/proto-loader-gen-types.js" } }, "sha512-rc1hOQtjIWGxcxpb9aHAfLpIctjEnsDehj0DAiVfBlmT84uvR0uUtN2hEi/ecvWVjXUGf5qPF4qEgiLOx1YIMQ=="],
 
-    "@hono/node-server": ["@hono/node-server@1.19.13", "https://registry.npmmirror.com/@hono/node-server/-/node-server-1.19.13.tgz", { "peerDependencies": { "hono": "^4" } }, "sha512-TsQLe4i2gvoTtrHje625ngThGBySOgSK3Xo2XRYOdqGN1teR8+I7vchQC46uLJi8OF62YTYA3AhSpumtkhsaKQ=="],
+    "@hono/node-server": ["@hono/node-server@2.0.0", "", { "peerDependencies": { "hono": "^4" } }, "sha512-n3GfHwwCvHCkGmOwKfxUPOlbfzuO64Sbc5XC4NGPIXxkuOnJrdgExdRKmHfF924r914WRJPT397GdqLvdYTeyQ=="],
 
     "@hono/node-ws": ["@hono/node-ws@1.3.0", "https://registry.npmmirror.com/@hono/node-ws/-/node-ws-1.3.0.tgz", { "dependencies": { "ws": "^8.17.0" }, "peerDependencies": { "@hono/node-server": "^1.19.2", "hono": "^4.6.0" } }, "sha512-ju25YbbvLuXdqBCmLZLqnNYu1nbHIQjoyUqA8ApZOeL1k4skuiTcw5SW77/5SUYo2Xi2NVBJoVlfQurnKEp03Q=="],
 
@@ -3080,11 +3079,15 @@
 
     "@grpc/proto-loader/yargs": ["yargs@17.7.2", "https://registry.npmmirror.com/yargs/-/yargs-17.7.2.tgz", { "dependencies": { "cliui": "^8.0.1", "escalade": "^3.1.1", "get-caller-file": "^2.0.5", "require-directory": "^2.1.1", "string-width": "^4.2.3", "y18n": "^5.0.5", "yargs-parser": "^21.1.1" } }, "sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w=="],
 
+    "@hono/node-ws/@hono/node-server": ["@hono/node-server@1.19.13", "https://registry.npmmirror.com/@hono/node-server/-/node-server-1.19.13.tgz", { "peerDependencies": { "hono": "^4" } }, "sha512-TsQLe4i2gvoTtrHje625ngThGBySOgSK3Xo2XRYOdqGN1teR8+I7vchQC46uLJi8OF62YTYA3AhSpumtkhsaKQ=="],
+
     "@inquirer/core/@types/node": ["@types/node@22.19.17", "https://registry.npmmirror.com/@types/node/-/node-22.19.17.tgz", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-wGdMcf+vPYM6jikpS/qhg6WiqSV/OhG+jeeHT/KlVqxYfD40iYJf9/AE1uQxVWFvU7MipKRkRv8NSHiCGgPr8Q=="],
 
     "@inquirer/core/strip-ansi": ["strip-ansi@6.0.1", "https://registry.npmmirror.com/strip-ansi/-/strip-ansi-6.0.1.tgz", { "dependencies": { "ansi-regex": "^5.0.1" } }, "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A=="],
 
     "@inquirer/core/wrap-ansi": ["wrap-ansi@6.2.0", "https://registry.npmmirror.com/wrap-ansi/-/wrap-ansi-6.2.0.tgz", { "dependencies": { "ansi-styles": "^4.0.0", "string-width": "^4.1.0", "strip-ansi": "^6.0.0" } }, "sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA=="],
+
+    "@modelcontextprotocol/sdk/@hono/node-server": ["@hono/node-server@1.19.13", "https://registry.npmmirror.com/@hono/node-server/-/node-server-1.19.13.tgz", { "peerDependencies": { "hono": "^4" } }, "sha512-TsQLe4i2gvoTtrHje625ngThGBySOgSK3Xo2XRYOdqGN1teR8+I7vchQC46uLJi8OF62YTYA3AhSpumtkhsaKQ=="],
 
     "@opentelemetry/exporter-logs-otlp-grpc/@opentelemetry/core": ["@opentelemetry/core@2.6.1", "https://registry.npmmirror.com/@opentelemetry/core/-/core-2.6.1.tgz", { "dependencies": { "@opentelemetry/semantic-conventions": "^1.29.0" }, "peerDependencies": { "@opentelemetry/api": ">=1.0.0 <1.10.0" } }, "sha512-8xHSGWpJP9wBxgBpnqGL0R3PbdWQndL1Qp50qrg71+B28zK5OQmUgcDKLJgzyAAV38t4tOyLMGDD60LneR5W8g=="],
 
