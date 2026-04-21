@@ -6,6 +6,7 @@ import { getSpeciesData } from '../data/species'
 import { SPECIES_PERSONALITY } from '../data/names'
 import { getNextEvolution } from '../data/evolution'
 import { StatBar } from './StatBar'
+import { getStatColor } from './shared'
 
 const CYAN: Color = 'ansi:cyan'
 const GRAY: Color = 'ansi:white'
@@ -184,10 +185,3 @@ function isInChain(target: SpeciesId, head: SpeciesId): boolean {
 	return false
 }
 
-function getStatColor(stat: string): Color {
-	const colors: Record<string, Color> = {
-		hp: 'ansi:green', attack: 'ansi:red', defense: 'ansi:yellow',
-		spAtk: 'ansi:blue', spDef: 'ansi:magenta', speed: 'ansi:cyan',
-	}
-	return colors[stat] ?? 'ansi:white'
-}

@@ -2,6 +2,8 @@ import { Dex } from '@pkmn/sim'
 import type { SpeciesId } from '../types'
 import { ALL_SPECIES_IDS } from '../types'
 
+
+
 export interface EvolutionChainStep {
 	from: SpeciesId
 	to: SpeciesId
@@ -33,13 +35,3 @@ export function getNextEvolution(speciesId: SpeciesId): EvolutionChainStep | und
 		minLevel: targetDex.evoLevel ?? undefined,
 	}
 }
-
-/** @deprecated Use getNextEvolution() instead. Kept for backward compat. */
-export const EVOLUTION_CHAINS: EvolutionChainStep[] = (() => {
-	const chains: EvolutionChainStep[] = []
-	for (const id of ALL_SPECIES_IDS) {
-		const evo = getNextEvolution(id)
-		if (evo) chains.push(evo)
-	}
-	return chains
-})()

@@ -8,6 +8,7 @@ import { calculateStats, getCreatureName, getTotalEV } from '../core/creature'
 import { getXpProgress } from '../core/experience'
 import { getEVSummary } from '../core/effort'
 import { getGenderSymbol } from '../core/gender'
+import { getStatColor } from './shared'
 import { getNextEvolution } from '../data/evolution'
 import { StatBar } from './StatBar'
 
@@ -155,16 +156,4 @@ export function CompanionCard({ creature, buddyData, spriteLines }: CompanionCar
 
 		</Box>
 	)
-}
-
-function getStatColor(stat: string): Color {
-	const colors: Record<string, Color> = {
-		hp: 'ansi:green',
-		attack: 'ansi:red',
-		defense: 'ansi:yellow',
-		spAtk: 'ansi:blue',
-		spDef: 'ansi:magenta',
-		speed: 'ansi:cyan',
-	}
-	return colors[stat] ?? 'ansi:white'
 }

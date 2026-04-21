@@ -32,7 +32,7 @@ export { DEFAULT_EV_MAPPING, getEVForTool, MAX_EV_PER_STAT, MAX_EV_TOTAL } from 
 export { xpForLevel, levelFromXp, xpToNextLevel } from './data/xpTable'
 export { SPECIES_NAMES, SPECIES_I18N, SPECIES_PERSONALITY } from './data/names'
 export { getAllNatureNames, randomNature, getNatureEffect } from './data/nature'
-export { getNextEvolution, EVOLUTION_CHAINS } from './data/evolution'
+export { getNextEvolution } from './data/evolution'
 export { getDefaultMoveset, getDefaultAbility, getNewLearnableMoves } from './data/learnsets'
 export { FROM_DEX_STAT, TO_DEX_STAT } from './data/pkmn'
 
