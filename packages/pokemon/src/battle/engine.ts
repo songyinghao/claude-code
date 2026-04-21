@@ -242,7 +242,6 @@ export function executeTurn(
 			p1Choice = switchIdx >= 0 ? `switch ${switchIdx + 1}` : 'move 1'
 			break
 		}
-			break
 		case 'item':
 			p1Choice = 'move 1' // Items handled via settlement
 			break
