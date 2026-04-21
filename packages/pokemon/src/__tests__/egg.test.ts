@@ -62,7 +62,7 @@ describe('checkEggEligibility', () => {
 	})
 
 	test('not eligible with low consecutive days', () => {
-		const data = makeBuddyData({ consecutiveDays: 3 })
+		const data = makeBuddyData({ consecutiveDays: 2 })
 		expect(checkEggEligibility(data)).toBe(false)
 	})
 

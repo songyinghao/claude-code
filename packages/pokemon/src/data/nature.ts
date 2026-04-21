@@ -1,4 +1,5 @@
 import { Dex } from '@pkmn/sim'
+import { FROM_DEX_STAT } from './pkmn'
 import type { NatureName, NatureEffect, NatureStat } from '../types'
 
 // All 25 canonical nature names (Dex.natures is not iterable, so we list them)
@@ -21,12 +22,18 @@ export function randomNature(): NatureName {
 	return names[Math.floor(Math.random() * names.length)]!
 }
 
+/** Map Dex stat abbreviation (atk, spa, spe, etc.) to our NatureStat format */
+function mapDexStat(stat: string | undefined): NatureStat | null {
+	if (!stat) return null
+	return (FROM_DEX_STAT[stat] as NatureStat) ?? null
+}
+
 /** Get nature effect (plus/minus stat, or null for neutral) — delegates to Dex.natures */
 export function getNatureEffect(nature: NatureName): NatureEffect {
 	const n = Dex.natures.get(nature)
 	if (!n?.exists) return { plus: null, minus: null }
 	return {
-		plus: (n.plus as NatureStat | undefined) ?? null,
-		minus: (n.minus as NatureStat | undefined) ?? null,
+		plus: mapDexStat(n.plus),
+		minus: mapDexStat(n.minus),
 	}
 }
