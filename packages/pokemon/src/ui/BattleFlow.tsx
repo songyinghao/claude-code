@@ -65,7 +65,7 @@ export function BattleFlow({ buddyData: initialData, onClose }: BattleFlowProps)
 	}, [buddyData])
 
 	// Battle phase: handle action
-	const handleAction = useCallback((action: PlayerAction) => {
+	const handleAction = useCallback(async (action: PlayerAction) => {
 		if (!battleInit) return
 		const state = executeTurn(battleInit, action)
 		setBattleState(state)
@@ -73,7 +73,7 @@ export function BattleFlow({ buddyData: initialData, onClose }: BattleFlowProps)
 		if (state.finished && state.result) {
 			const participants = buddyData.party.filter((id): id is string => id !== null)
 			const result = { ...state.result, participantIds: participants }
-			const settled = settleBattle(buddyData, result, opponentSpeciesId, opponentLevel)
+			const settled = await settleBattle(buddyData, result, opponentSpeciesId, opponentLevel)
 
 			setBuddyData(settled.data)
 			setPendingMoves(settled.learnableMoves)

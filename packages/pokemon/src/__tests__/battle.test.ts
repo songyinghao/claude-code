@@ -99,7 +99,7 @@ describe('executeTurn', () => {
 })
 
 describe('settleBattle', () => {
-	test('player win increments battlesWon', () => {
+	test('player win increments battlesWon', async () => {
 		const creature = makeTestCreature()
 		const data: BuddyData = {
 			version: 2,
@@ -127,11 +127,11 @@ describe('settleBattle', () => {
 			participantIds: [creature.id],
 		}
 
-		const settlement = settleBattle(data, result, 'squirtle', 20)
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
 		expect(settlement.data.stats.battlesWon).toBe(1)
 	})
 
-	test('player loss returns unchanged data', () => {
+	test('player loss returns unchanged data', async () => {
 		const creature = makeTestCreature()
 		const data: BuddyData = {
 			version: 2,
@@ -159,7 +159,7 @@ describe('settleBattle', () => {
 			participantIds: [creature.id],
 		}
 
-		const settlement = settleBattle(data, result, 'squirtle', 20)
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
 		// Loss early-returns unchanged data
 		expect(settlement.data.creatures[0]!.totalXp).toBe(creature.totalXp)
 		expect(settlement.learnableMoves).toEqual([])
@@ -255,7 +255,7 @@ describe('chooseAIMove', () => {
 })
 
 describe('settleBattle - advanced', () => {
-	test('player win awards XP to creature', () => {
+	test('player win awards XP to creature', async () => {
 		const creature = makeTestCreature({ level: 5 })
 		const data = makeTestBuddyData([creature])
 		const result = {
@@ -265,11 +265,11 @@ describe('settleBattle - advanced', () => {
 			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
 			participantIds: [creature.id],
 		}
-		const settlement = settleBattle(data, result, 'squirtle', 20)
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
 		expect(settlement.data.creatures[0]!.totalXp).toBeGreaterThan(0)
 	})
 
-	test('player win awards EVs (capped at 252 per stat)', () => {
+	test('player win awards EVs (capped at 252 per stat)', async () => {
 		const creature = makeTestCreature({
 			level: 5,
 			ev: { hp: 250, attack: 250, defense: 250, spAtk: 250, spDef: 250, speed: 250 },
@@ -282,13 +282,13 @@ describe('settleBattle - advanced', () => {
 			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
 			participantIds: [creature.id],
 		}
-		const settlement = settleBattle(data, result, 'squirtle', 20)
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
 		for (const stat of ['hp', 'attack', 'defense', 'spAtk', 'spDef', 'speed'] as const) {
 			expect(settlement.data.creatures[0]!.ev[stat]).toBeLessThanOrEqual(252)
 		}
 	})
 
-	test('player loss does not increment battlesWon', () => {
+	test('player loss does not increment battlesWon', async () => {
 		const creature = makeTestCreature()
 		const data = makeTestBuddyData([creature])
 		const result = {
@@ -298,7 +298,7 @@ describe('settleBattle - advanced', () => {
 			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
 			participantIds: [creature.id],
 		}
-		const settlement = settleBattle(data, result, 'squirtle', 20)
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
 		expect(settlement.data.stats.battlesWon).toBe(0)
 	})
 })

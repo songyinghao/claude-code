@@ -39,7 +39,7 @@ export type BattleEvent =
 	| { type: 'switch'; side: 'player' | 'opponent'; speciesId: string; name: string }
 	| { type: 'effectiveness'; multiplier: number }
 	| { type: 'crit' }
-	| { type: 'miss' }
+	| { type: 'miss'; side: 'player' | 'opponent' }
 	| { type: 'status'; side: 'player' | 'opponent'; status: StatusCondition }
 	| { type: 'statChange'; side: 'player' | 'opponent'; stat: string; stages: number }
 	| { type: 'ability'; side: 'player' | 'opponent'; ability: string }

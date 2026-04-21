@@ -164,7 +164,7 @@ function parseLogToEvents(log: string[]): BattleEvent[] {
 		} else if (line.startsWith('|-crit|')) {
 			events.push({ type: 'crit' })
 		} else if (line.startsWith('|-miss|')) {
-			events.push({ type: 'miss', side } as any)
+			events.push({ type: 'miss', side })
 		} else if (line.startsWith('|-status|')) {
 			events.push({ type: 'status', side, status: mapStatus(parts[3]) })
 		} else if (line.startsWith('|-boost|') || line.startsWith('|-unboost|')) {
@@ -235,8 +235,13 @@ export function executeTurn(
 		case 'move':
 			p1Choice = `move ${action.moveIndex + 1}`
 			break
-		case 'switch':
-			p1Choice = `switch ${action.creatureId}`
+		case 'switch': {
+			// Find the party slot number for this creature (sim uses 1-based index)
+			const p1Pokemon: any[] = battle.p1.pokemon
+			const switchIdx = p1Pokemon.findIndex((p: any) => toID(p.name) === action.creatureId || p.name === action.creatureId)
+			p1Choice = switchIdx >= 0 ? `switch ${switchIdx + 1}` : 'move 1'
+			break
+		}
 			break
 		case 'item':
 			p1Choice = 'move 1' // Items handled via settlement

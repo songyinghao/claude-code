@@ -11,16 +11,16 @@ import { Dex } from '@pkmn/sim'
 /**
  * Settle battle results: XP, EV, level ups, move learning, evolution detection.
  */
-export function settleBattle(
+export async function settleBattle(
 	data: BuddyData,
 	result: BattleResult,
 	opponentSpeciesId: SpeciesId,
 	opponentLevel: number,
-): {
+): Promise<{
 	data: BuddyData
 	learnableMoves: { creatureId: string; moveId: string; moveName: string }[]
 	pendingEvolutions: { creatureId: string; from: SpeciesId; to: SpeciesId }[]
-} {
+}> {
 	if (result.winner !== 'player') {
 		return { data, learnableMoves: [], pendingEvolutions: [] }
 	}
@@ -40,10 +40,14 @@ export function settleBattle(
 	// Award XP/EV to participant creatures
 	const learnableMoves: { creatureId: string; moveId: string; moveName: string }[] = []
 	const pendingEvolutions: { creatureId: string; from: SpeciesId; to: SpeciesId }[] = []
-	const participantIds = new Set(result.participantIds.length > 0 ? result.participantIds : data.party.filter(Boolean))
+	const participantIds = new Set(result.participantIds.length > 0 ? result.participantIds : data.party.filter((id): id is string => id !== null))
 
-	const updatedCreatures = data.creatures.map(creature => {
-		if (!participantIds.has(creature.id)) return creature
+	const updatedCreatures: typeof data.creatures = []
+	for (const creature of data.creatures) {
+		if (!participantIds.has(creature.id)) {
+			updatedCreatures.push(creature)
+			continue
+		}
 
 		// Award EVs (capped)
 		const newEv = { ...creature.ev }
@@ -61,8 +65,28 @@ export function settleBattle(
 		const species = getSpeciesData(creature.speciesId)
 		const newLevel = Math.min(100, levelFromXp(newTotalXp, species.growthRate))
 
-		// Detect new learnable moves (async in real code, but for settlement we check synchronously)
-		// This will be handled at the UI level with getNewLearnableMoves
+		// Detect new learnable moves on level up
+		if (newLevel > oldLevel) {
+			const learnset = await Dex.learnsets.get(creature.speciesId)
+			if (learnset?.learnset) {
+				for (const [moveId, sources] of Object.entries(learnset.learnset)) {
+					for (const src of sources as string[]) {
+						if (src.startsWith('9L')) {
+							const moveLevel = parseInt(src.slice(2))
+							if (moveLevel > oldLevel && moveLevel <= newLevel) {
+								const dexMove = Dex.moves.get(moveId)
+								learnableMoves.push({
+									creatureId: creature.id,
+									moveId,
+									moveName: dexMove?.name ?? moveId,
+								})
+							}
+							break
+						}
+					}
+				}
+			}
+		}
 
 		// Detect evolution
 		if (newLevel > oldLevel) {
@@ -80,13 +104,13 @@ export function settleBattle(
 			}
 		}
 
-		return {
+		updatedCreatures.push({
 			...creature,
 			level: newLevel,
 			totalXp: newTotalXp,
 			ev: newEv,
-		}
-	})
+		})
+	}
 
 	// Update data
 	const updatedData: BuddyData = {
