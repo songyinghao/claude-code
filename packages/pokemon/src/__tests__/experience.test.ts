@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test'
 import { generateCreature } from '../core/creature'
 import { awardXP, getXpProgress } from '../core/experience'
-import { xpForLevel, levelFromXp } from '../data/xpTable'
+import { xpForLevel, levelFromXp, xpToNextLevel } from '../data/xpTable'
 
 describe('xpForLevel', () => {
 	test('level 1 requires 0 XP', () => {
@@ -80,5 +80,74 @@ describe('getXpProgress', () => {
 		const progress = getXpProgress(c)
 		expect(progress.current).toBe(0)
 		expect(progress.percentage).toBe(0)
+	})
+
+	test('level 100 creature has 100% progress', async () => {
+		const c = await generateCreature('charmander')
+		c.level = 100
+		c.totalXp = 1000000
+		const progress = getXpProgress(c)
+		expect(progress.percentage).toBe(100)
+	})
+
+	test('needed is positive for sub-100 creatures', async () => {
+		const c = await generateCreature('bulbasaur')
+		c.level = 5
+		c.totalXp = xpForLevel(5, 'medium-slow')
+		const progress = getXpProgress(c)
+		expect(progress.needed).toBeGreaterThan(0)
+		expect(progress.current).toBe(0)
+	})
+})
+
+describe('xpToNextLevel', () => {
+	test('returns XP needed from current to next level', () => {
+		const xp10 = xpForLevel(10, 'medium-fast')
+		const xp11 = xpForLevel(11, 'medium-fast')
+		const needed = xpToNextLevel(10, xp10, 'medium-fast')
+		expect(needed).toBe(xp11 - xp10)
+	})
+
+	test('returns 0 at level 100', () => {
+		expect(xpToNextLevel(100, 1000000, 'medium-fast')).toBe(0)
+	})
+
+	test('accounts for partial XP already earned', () => {
+		const xp10 = xpForLevel(10, 'medium-fast')
+		const xp11 = xpForLevel(11, 'medium-fast')
+		const halfWay = xp10 + Math.floor((xp11 - xp10) / 2)
+		const needed = xpToNextLevel(10, halfWay, 'medium-fast')
+		expect(needed).toBe(xp11 - halfWay)
+	})
+})
+
+describe('awardXP - extended', () => {
+	test('awarding 0 XP returns unchanged creature', async () => {
+		const c = await generateCreature('bulbasaur')
+		const result = awardXP(c, 0)
+		expect(result.creature.totalXp).toBe(c.totalXp)
+		expect(result.leveledUp).toBe(false)
+	})
+
+	test('XP progress is correctly calculated after award', async () => {
+		const c = await generateCreature('squirtle')
+		const xpNeeded = xpForLevel(2, 'medium-slow')
+		const result = awardXP(c, Math.floor(xpNeeded / 2))
+		expect(result.creature.xp).toBeGreaterThanOrEqual(0)
+	})
+
+	test('multiple small XP awards equal one large award', async () => {
+		const c1 = await generateCreature('bulbasaur', 42)
+		const c2 = await generateCreature('bulbasaur', 42)
+		c2.totalXp = c1.totalXp
+
+		let current = c1
+		for (let i = 0; i < 10; i++) {
+			current = awardXP(current, 100).creature
+		}
+		const bigResult = awardXP(c2, 1000)
+
+		expect(current.totalXp).toBe(bigResult.creature.totalXp)
+		expect(current.level).toBe(bigResult.creature.level)
 	})
 })

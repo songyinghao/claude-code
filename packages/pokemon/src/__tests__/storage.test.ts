@@ -325,3 +325,56 @@ describe('incrementTurns', () => {
 		expect(updated.stats.totalTurns).toBe(data.stats.totalTurns + 1)
 	})
 })
+
+// ─── Extended coverage ───
+
+describe('depositToBox - full boxes', () => {
+	test('fails when all boxes are full', () => {
+		const data = makeData()
+		for (const box of data.boxes) {
+			for (let i = 0; i < 30; i++) {
+				box.slots[i] = `filler-${i}`
+			}
+		}
+		const result = depositToBox(data, 'test-id')
+		expect(result.deposited).toBe(false)
+	})
+})
+
+describe('withdrawFromBox - roundtrip', () => {
+	test('deposit then withdraw leaves box empty', () => {
+		const data = makeData()
+		const deposited = depositToBox(data, 'test-id')
+		expect(deposited.deposited).toBe(true)
+		const result = withdrawFromBox(deposited.data, 'test-id')
+		expect(result.withdrawn).toBe(true)
+		const slot = result.data.boxes[0]!.slots.find(s => s === 'test-id')
+		expect(slot).toBeUndefined()
+	})
+})
+
+describe('findCreatureLocation - deposit', () => {
+	test('finds creature after depositing to box', () => {
+		const data = makeData()
+		const deposited = depositToBox(data, 'box-mon')
+		const loc = findCreatureLocation(deposited.data, 'box-mon')
+		expect(loc).not.toBeNull()
+		expect(loc!.area).toBe('box')
+	})
+})
+
+describe('releaseCreature - box', () => {
+	test('removes creature from box and creatures array', () => {
+		const data = makeData()
+		const deposited = depositToBox(data, 'box-mon')
+		const released = releaseCreature(deposited.data, 'box-mon')
+		expect(released.creatures.find(c => c.id === 'box-mon')).toBeUndefined()
+	})
+
+	test('clears party slot when releasing party member', () => {
+		const data = makeData(2)
+		const updated = releaseCreature(data, 'creature-1')
+		expect(updated.party[1]).toBeNull()
+		expect(updated.creatures.length).toBe(1)
+	})
+})

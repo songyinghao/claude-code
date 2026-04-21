@@ -23,7 +23,7 @@ function makeTestCreature(overrides: Partial<Creature> = {}): Creature {
 		],
 		ability: overrides.ability ?? 'blaze',
 		heldItem: null,
-		friendship: 70,
+		friendship: overrides.friendship ?? 70,
 		isShiny: false,
 		hatchedAt: Date.now(),
 		pokeball: 'pokeball',
@@ -300,5 +300,170 @@ describe('settleBattle - advanced', () => {
 		}
 		const settlement = await settleBattle(data, result, 'squirtle', 20)
 		expect(settlement.data.stats.battlesWon).toBe(0)
+	})
+})
+
+describe('createBattle - extended', () => {
+	test('battle state has turn initialized', () => {
+		const creature = makeTestCreature()
+		const init = createBattle([creature], 'squirtle', 50)
+		expect(init.state.turn).toBeGreaterThanOrEqual(1)
+	})
+
+	test('player pokemon has correct level', () => {
+		const creature = makeTestCreature({ level: 25 })
+		const init = createBattle([creature], 'bulbasaur', 10)
+		expect(init.state.playerPokemon.level).toBe(25)
+	})
+
+	test('opponent pokemon has correct level', () => {
+		const creature = makeTestCreature()
+		const init = createBattle([creature], 'squirtle', 15)
+		expect(init.state.opponentPokemon.level).toBe(15)
+	})
+
+	test('battle state has player party', () => {
+		const creature = makeTestCreature()
+		const init = createBattle([creature], 'squirtle', 50)
+		expect(init.state.playerParty.length).toBeGreaterThan(0)
+	})
+
+	test('battle state has usable items (empty bag)', () => {
+		const creature = makeTestCreature()
+		const init = createBattle([creature], 'squirtle', 50)
+		expect(init.state.usableItems).toEqual([])
+	})
+})
+
+describe('executeTurn - extended', () => {
+	test('item action defaults to move 1', () => {
+		const creature = makeTestCreature()
+		const init = createBattle([creature], 'squirtle', 50)
+		const state = executeTurn(init, { type: 'item', itemId: 'potion' })
+		expect(state).toBeDefined()
+		expect(state.events.length).toBeGreaterThan(0)
+	})
+
+	test('battle produces damage or heal events', () => {
+		const creature = makeTestCreature({ level: 100, ev: { hp: 252, attack: 252, defense: 0, spAtk: 0, spDef: 4, speed: 252 } })
+		const init = createBattle([creature], 'squirtle', 5)
+		const state = executeTurn(init, { type: 'move', moveIndex: 0 })
+		const hasDamageOrHeal = state.events.some(e => e.type === 'damage' || e.type === 'heal')
+		expect(hasDamageOrHeal).toBe(true)
+	})
+})
+
+describe('settleBattle - EV limits', () => {
+	test('EV total cannot exceed 510', async () => {
+		const creature = makeTestCreature({
+			level: 5,
+			ev: { hp: 250, attack: 250, defense: 10, spAtk: 0, spDef: 0, speed: 0 },
+		})
+		const data = makeTestBuddyData([creature])
+		const result = {
+			winner: 'player' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [creature.id],
+		}
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
+		const totalEV = Object.values(settlement.data.creatures[0]!.ev).reduce((a, b) => a + b, 0)
+		expect(totalEV).toBeLessThanOrEqual(510)
+	})
+
+	test('non-participant creatures are unchanged', async () => {
+		const participant = makeTestCreature({ id: 'p1', level: 5 })
+		const bystander = makeTestCreature({ id: 'p2', level: 5, speciesId: 'bulbasaur' })
+		const data = makeTestBuddyData([participant, bystander])
+		data.party = [participant.id, bystander.id, null, null, null, null]
+		const result = {
+			winner: 'player' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [participant.id],
+		}
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
+		const bystanderAfter = settlement.data.creatures.find(c => c.id === 'p2')!
+		expect(bystanderAfter.totalXp).toBe(bystander.totalXp)
+	})
+
+	test('uses all party members as participants when participantIds is empty', async () => {
+		const c1 = makeTestCreature({ id: 'p1', level: 5 })
+		const c2 = makeTestCreature({ id: 'p2', level: 5, speciesId: 'bulbasaur' })
+		const data = makeTestBuddyData([c1, c2])
+		data.party = [c1.id, c2.id, null, null, null, null]
+		const result = {
+			winner: 'player' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [] as string[],
+		}
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
+		expect(settlement.data.creatures.find(c => c.id === 'p1')!.totalXp).toBeGreaterThan(0)
+		expect(settlement.data.creatures.find(c => c.id === 'p2')!.totalXp).toBeGreaterThan(0)
+	})
+
+	test('player win increments battlesWon but not battlesLost', async () => {
+		const creature = makeTestCreature({ level: 5 })
+		const data = makeTestBuddyData([creature])
+		const result = {
+			winner: 'player' as const,
+			turns: 3,
+			xpGained: 0,
+			evGained: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+			participantIds: [creature.id],
+		}
+		const settlement = await settleBattle(data, result, 'squirtle', 20)
+		expect(settlement.data.stats.battlesWon).toBe(1)
+		expect(settlement.data.stats.battlesLost).toBe(0)
+	})
+})
+
+describe('applyMoveLearn - extended', () => {
+	test('new move has correct PP from Dex', () => {
+		const creature = makeTestCreature()
+		const data = makeTestBuddyData([creature])
+		const updated = applyMoveLearn(data, creature.id, 'fireblast', 0)
+		const move = updated.creatures[0]!.moves[0]!
+		expect(move.id).toBe('fireblast')
+		expect(move.pp).toBeGreaterThan(0)
+		expect(move.maxPp).toBeGreaterThan(0)
+	})
+
+	test('non-target creatures are unchanged', () => {
+		const c1 = makeTestCreature({ id: 't1' })
+		const c2 = makeTestCreature({ id: 't2', speciesId: 'bulbasaur' })
+		const data = makeTestBuddyData([c1, c2])
+		const updated = applyMoveLearn(data, 't1', 'fireblast', 0)
+		const unchanged = updated.creatures.find(c => c.id === 't2')!
+		expect(unchanged.moves[0]!.id).toBe('flamethrower')
+	})
+})
+
+describe('applyEvolution - extended', () => {
+	test('friendship increases by 10', () => {
+		const creature = makeTestCreature({ speciesId: 'charmander', friendship: 70 })
+		const data = makeTestBuddyData([creature])
+		const updated = applyEvolution(data, creature.id, 'charmeleon')
+		expect(updated.creatures[0]!.friendship).toBe(80)
+	})
+
+	test('friendship capped at 255', () => {
+		const creature = makeTestCreature({ speciesId: 'charmander', friendship: 250 })
+		const data = makeTestBuddyData([creature])
+		const updated = applyEvolution(data, creature.id, 'charmeleon')
+		expect(updated.creatures[0]!.friendship).toBe(255)
+	})
+
+	test('multiple evolutions increment counter correctly', () => {
+		const c1 = makeTestCreature({ id: 't1', speciesId: 'charmander' })
+		const c2 = makeTestCreature({ id: 't2', speciesId: 'bulbasaur' })
+		const data = makeTestBuddyData([c1, c2])
+		let updated = applyEvolution(data, 't1', 'charmeleon')
+		updated = applyEvolution(updated, 't2', 'ivysaur')
+		expect(updated.stats.totalEvolutions).toBe(2)
 	})
 })
