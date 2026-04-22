@@ -1,0 +1,59 @@
+name: Auto Issue Fix
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  auto-fix:
+    # Only trigger when the label is "ai-fix"
+    if: github.event.label.name == 'ai-fix'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are an expert software engineer. Analyze the following GitHub issue and determine if it can be fixed.
+
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+            ${{ github.event.issue.body }}
+
+            Instructions:
+            1. Read and understand the issue thoroughly.
+            2. Explore the codebase to find the relevant code.
+            3. If the issue is fixable, implement the fix and create a pull request. Use a clear PR title and description referencing the issue.
+            4. If the issue is NOT fixable (e.g., needs more info, not a bug, out of scope), explain why in a brief summary.
+            5. At the end, output a summary of what you did as your FINAL message. This will be posted as a comment on the issue.
+          claude_args: |
+            --model ${{ vars.CLAUDE_MODEL || 'claude-sonnet-4-20250514' }}
+            --max-turns 30
+            --allowedTools "Edit,Write,Read,Bash,Glob,Grep,Agent"
+          settings: >
+            {
+              "env": {
+                "ANTHROPIC_BASE_URL": "${{ secrets.ANTHROPIC_BASE_URL }}"
+              }
+            }
+
+      - name: Post Claude's response as issue comment
+        if: always() && steps.claude.outputs.result != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.claude.outputs.result }}"
