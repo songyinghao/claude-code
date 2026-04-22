@@ -4,20 +4,14 @@ import type { SpeciesId, SpriteCache } from '../types'
 import { getSpeciesData } from '../dex/species'
 import { getSpritesDir } from './storage'
 
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/HRKings/pokemonsay-newgenerations/master/pokemons'
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/claude-code-best/pokemonsay-newgenerations/master/pokemons'
 
-/** Mapping of speciesId to cow file prefix */
-const COW_FILE_MAP: Record<SpeciesId, string> = {
-  bulbasaur: '001_bulbasaur',
-  ivysaur: '002_ivysaur',
-  venusaur: '003_venusaur',
-  charmander: '004_charmander',
-  charmeleon: '005_charmeleon',
-  charizard: '006_charizard',
-  squirtle: '007_squirtle',
-  wartortle: '008_wartortle',
-  blastoise: '009_blastoise',
-  pikachu: '025_pikachu',
+/**
+ * Build cow file name from dex number: NNN.cow
+ */
+function cowFileName(speciesId: SpeciesId): string {
+  const { dexNumber } = getSpeciesData(speciesId)
+  return `${String(dexNumber).padStart(3, '0')}.cow`
 }
 
 /**
@@ -32,8 +26,7 @@ export function loadSprite(speciesId: SpeciesId): SpriteCache | null {
   try {
     const raw = readFileSync(filePath, 'utf-8')
     return JSON.parse(raw) as SpriteCache
-  } catch (e) {
-    console.error(`[buddy] Failed to load sprite cache for ${speciesId}:`, e)
+  } catch {
     return null
   }
 }
@@ -47,10 +40,8 @@ export async function fetchAndCacheSprite(speciesId: SpeciesId): Promise<SpriteC
   const cached = loadSprite(speciesId)
   if (cached) return cached
 
-  const cowFileName = COW_FILE_MAP[speciesId]
-  if (!cowFileName) return null
-
-  const url = `${GITHUB_RAW_BASE}/${cowFileName}.cow`
+  const fileName = cowFileName(speciesId)
+  const url = `${GITHUB_RAW_BASE}/${fileName}`
 
   try {
     const response = await fetch(url)
@@ -63,7 +54,7 @@ export async function fetchAndCacheSprite(speciesId: SpeciesId): Promise<SpriteC
     const sprite: SpriteCache = {
       speciesId,
       lines,
-      width: Math.max(...lines.map((l) => stripAnsi(l).length)),
+      width: Math.max(...lines.map(l => stripAnsi(l).length)),
       height: lines.length,
       fetchedAt: Date.now(),
     }
@@ -74,8 +65,7 @@ export async function fetchAndCacheSprite(speciesId: SpeciesId): Promise<SpriteC
     writeFileSync(filePath, JSON.stringify(sprite, null, 2))
 
     return sprite
-  } catch (e) {
-    console.error(`[buddy] Failed to fetch sprite for ${speciesId}:`, e)
+  } catch {
     return null
   }
 }
@@ -119,7 +109,7 @@ function convertCowToLines(cowContent: string): string[] {
   }
 
   // Trim trailing whitespace on each line (preserve leading for alignment)
-  lines = lines.map((line) => line.trimEnd())
+  lines = lines.map(line => line.trimEnd())
 
   return lines
 }

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Box, Text, Pane, Tab, Tabs, useInput, useTabHeaderFocus, type Color } from '@anthropic/ink';
+import { Box, Text, Pane, Tab, Tabs, useInput, type Color } from '@anthropic/ink';
 import { useSetAppState } from '../../state/AppState.js';
 import { useKeybinding } from '../../keybindings/useKeybinding.js';
 import { useExitOnCtrlCDWithKeybindings } from '../../hooks/useExitOnCtrlCDWithKeybindings.js';
@@ -72,6 +72,20 @@ export function BuddyPanel({ buddyData, spriteLines, onClose }: BuddyPanelProps)
     isActive: true,
   });
 
+  // Tab / Shift+Tab to switch between tabs
+  const TAB_ORDER = ['Buddy', 'PC Box', 'Pokédex', 'Egg']
+  useInput((_input, key) => {
+    if (key.tab) {
+      setSelectedTab(prev => {
+        const idx = TAB_ORDER.indexOf(prev)
+        if (key.shift) {
+          return TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length]!
+        }
+        return TAB_ORDER[(idx + 1) % TAB_ORDER.length]!
+      })
+    }
+  });
+
   const updateData = (updated: BuddyData) => {
     setData(updated);
     saveBuddyData(updated);
@@ -100,7 +114,7 @@ export function BuddyPanel({ buddyData, spriteLines, onClose }: BuddyPanelProps)
 
   return (
     <Pane color="permission">
-      <Tabs color="permission" selectedTab={selectedTab} onTabChange={setSelectedTab} initialHeaderFocused={true}>
+      <Tabs color="permission" selectedTab={selectedTab} onTabChange={setSelectedTab} disableNavigation={true}>
         {tabs}
       </Tabs>
     </Pane>
@@ -125,11 +139,11 @@ function PartyView({
 
   useInput((_input, key) => {
     if (!isActive) return;
-    if (_input === 'a' || _input === 'A') {
+    if (key.leftArrow) {
       setFocusedSlot(prev => (prev > 0 ? prev - 1 : 5));
       setTick(t => t + 1);
       setStatusMsg(null);
-    } else if (_input === 'd' || _input === 'D') {
+    } else if (key.rightArrow) {
       setFocusedSlot(prev => (prev < 5 ? prev + 1 : 0));
       setTick(t => t + 1);
       setStatusMsg(null);
@@ -205,7 +219,7 @@ function PartyView({
 
       {/* Hint */}
       <Box justifyContent="center">
-        <Text color={GRAY} dimColor>a/d navigate · Enter swap · X remove</Text>
+        <Text color={GRAY} dimColor>←/→ navigate · Enter swap · X remove</Text>
       </Box>
 
       {/* Selected creature detail — key forces remount on slot change */}
@@ -817,16 +831,12 @@ const PARTY_SLOTS = 6
 type Panel = 'party' | 'box'
 
 function PcBoxTab({ data, onUpdate, isActive }: { data: BuddyData; onUpdate: (d: BuddyData) => void; isActive: boolean }) {
-  const { headerFocused, blurHeader, focusHeader } = useTabHeaderFocus()
   const [boxIdx, setBoxIdx] = useState(0)
   const [panel, setPanel] = useState<Panel>('box')
   const [partyCursor, setPartyCursor] = useState(0) // 0-5
   const [boxCursor, setBoxCursor] = useState(0) // 0-29
   const [held, setHeld] = useState<{ id: string; from: Panel; partySlot?: number; boxSlot?: number } | null>(null)
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
-
-  // Blur header on mount so left/right goes to box grid, not tab switching
-  React.useEffect(() => { blurHeader() }, [blurHeader])
 
   const partySet = new Set(data.party.filter((id): id is string => id !== null))
   const box = data.boxes[boxIdx]!
@@ -839,11 +849,6 @@ function PcBoxTab({ data, onUpdate, isActive }: { data: BuddyData; onUpdate: (d:
 
   useInput((_input, key) => {
     if (!isActive) return
-    // When header is focused, only handle Tab to give focus back to content
-    if (headerFocused) {
-      if (key.tab) { blurHeader() }
-      return // let Tabs handle left/right
-    }
 
     // Switch box with ,/. regardless of panel
     if (_input === ',' || _input === '<') {
