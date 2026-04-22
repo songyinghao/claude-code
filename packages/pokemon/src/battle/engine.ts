@@ -95,14 +95,17 @@ function projectPokemon(pkm: any): BattlePokemon {
     hp,
     maxHp,
     types: species.types?.map((t: string) => t.toLowerCase()) ?? [],
-    moves: (pkm.moveSlots ?? pkm.baseMoveset ?? []).filter(Boolean).map((m: any) => ({
-      id: toID(m.name ?? m),
-      name: m.name ?? m,
-      type: m.type ?? 'Normal',
-      pp: m.pp ?? 0,
-      maxPp: m.maxPp ?? m.pp ?? 0,
-      disabled: m.disabled ?? false,
-    })),
+    moves: (pkm.moveSlots ?? pkm.baseMoveset ?? []).filter(Boolean).map((m: any) => {
+      const moveName = typeof m === 'string' ? m : (m.name ?? m.move?.name ?? Dex.moves.get(m.id ?? m.move)?.name ?? String(m.id ?? '???'))
+      return {
+        id: toID(moveName),
+        name: moveName,
+        type: m.type ?? Dex.moves.get(m.id ?? toID(moveName))?.type?.toLowerCase() ?? 'normal',
+        pp: m.pp ?? 0,
+        maxPp: m.maxPp ?? m.pp ?? 0,
+        disabled: m.disabled ?? false,
+      }
+    }),
     ability: pkm.ability ?? '',
     heldItem: pkm.item ?? null,
     status: mapStatus(pkm.status),
