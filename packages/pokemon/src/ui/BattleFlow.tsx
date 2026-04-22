@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react'
-import { Box, Text, useInput } from '@anthropic/ink'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
+import { Box, Text } from '@anthropic/ink'
 import type { BuddyData, Creature, SpeciesId } from '../types'
 import { ALL_SPECIES_IDS } from '../types'
 import { getSpeciesData } from '../dex/species'
@@ -26,13 +26,18 @@ type Phase =
   | 'evolution'
   | 'done'
 
+export interface BattleFlowHandle {
+  handleInput: (input: string, key: { escape?: boolean; return?: boolean; upArrow?: boolean; downArrow?: boolean }) => void
+}
+
 interface BattleFlowProps {
   buddyData: BuddyData
   onClose: () => void
   isActive?: boolean
+  inputRef?: React.MutableRefObject<BattleFlowHandle | null>
 }
 
-export function BattleFlow({ buddyData: initialData, onClose, isActive = true }: BattleFlowProps) {
+export function BattleFlow({ buddyData: initialData, onClose, isActive = true, inputRef }: BattleFlowProps) {
   const [phase, setPhase] = useState<Phase>('config')
   const [buddyData, setBuddyData] = useState(initialData)
   const [battleInit, setBattleInit] = useState<BattleInit | null>(null)
@@ -43,112 +48,6 @@ export function BattleFlow({ buddyData: initialData, onClose, isActive = true }:
   const [pendingEvos, setPendingEvos] = useState<{ creatureId: string; from: SpeciesId; to: SpeciesId }[]>([])
   const [replaceIndex, setReplaceIndex] = useState(0)
   const [speciesIndex, setSpeciesIndex] = useState(0)
-
-  // ─── Input handling ───
-
-  useInput((input: string, key: { escape?: boolean; return?: boolean; upArrow?: boolean; downArrow?: boolean }) => {
-    // Config phase: Enter = random battle, ESC = cancel
-    if (!isActive) return
-    if (phase === 'config') {
-      if (key.escape) {
-        onClose()
-      } else if (key.return || input === '1') {
-        handleRandomBattle()
-      } else if (input === '2') {
-        setPhase('configSelect')
-      }
-      return
-    }
-
-    // Config select: pick species by number
-    if (phase === 'configSelect') {
-      if (key.escape) {
-        setPhase('config')
-      } else if (key.return) {
-        handleStartBattle(opponentSpeciesId, buddyData.party[0] ? getActiveCreatureLevel() : 5)
-      }
-      return
-    }
-
-    // Battle phase: 1-4 = move, S = switch, I = item, ESC = cancel
-    if (phase === 'battle') {
-      if (key.escape) {
-        // Can't flee from wild battle - do nothing
-        return
-      }
-      if (input >= '1' && input <= '4') {
-        const idx = parseInt(input) - 1
-        if (battleState && idx < battleState.playerPokemon.moves.length) {
-          handleAction({ type: 'move', moveIndex: idx })
-        }
-      } else if (input.toLowerCase() === 's') {
-        setPhase('switch')
-      } else if (input.toLowerCase() === 'i') {
-        setPhase('item')
-      }
-      return
-    }
-
-    // Switch phase: 1-6 = select, ESC = cancel
-    if (phase === 'switch') {
-      if (key.escape) {
-        setPhase('battle')
-      } else if (input >= '1' && input <= '6') {
-        const idx = parseInt(input) - 1
-        const partyCreatures = getPartyCreatures()
-        if (battleState && partyCreatures[idx] && partyCreatures[idx]!.id !== battleState.playerPokemon.id) {
-          handleAction({ type: 'switch', creatureId: partyCreatures[idx]!.id })
-          setPhase('battle')
-        }
-      }
-      return
-    }
-
-    // Item phase: 1-9 = select item, ESC = cancel
-    if (phase === 'item') {
-      if (key.escape) {
-        setPhase('battle')
-      } else if (input >= '1' && input <= '9') {
-        if (battleState) {
-          const idx = parseInt(input) - 1
-          const items = battleState.usableItems
-          if (items[idx]) {
-            handleAction({ type: 'item', itemId: items[idx]!.id })
-            setPhase('battle')
-          }
-        }
-      }
-      return
-    }
-
-    // Result phase: Enter = continue
-    if (phase === 'result') {
-      if (key.return) {
-        handleResultContinue()
-      }
-      return
-    }
-
-    // Move learn phase: 1-4 = replace, S = skip
-    if (phase === 'learnMoves') {
-      if (input.toLowerCase() === 's') {
-        handleMoveSkip()
-      } else if (input >= '1' && input <= '4') {
-        const idx = parseInt(input) - 1
-        setReplaceIndex(idx)
-        handleMoveLearn(idx)
-      }
-      return
-    }
-
-    // Evolution phase: Enter = confirm
-    if (phase === 'evolution') {
-      if (key.return) {
-        handleEvolutionConfirm()
-      }
-      return
-    }
-  })
 
   // ─── Helpers ───
 
@@ -274,6 +173,111 @@ export function BattleFlow({ buddyData: initialData, onClose, isActive = true }:
     }
   }, [pendingEvos, buddyData, onClose])
 
+  // ─── Input handler (called externally via inputRef) ───
+
+  const handleInput = useCallback((input: string, key: { escape?: boolean; return?: boolean; upArrow?: boolean; downArrow?: boolean }) => {
+    if (!isActive) return
+
+    if (phase === 'config') {
+      if (key.escape) {
+        onClose()
+      } else if (key.return || input === '1') {
+        handleRandomBattle()
+      } else if (input === '2') {
+        setPhase('configSelect')
+      }
+      return
+    }
+
+    if (phase === 'configSelect') {
+      if (key.escape) {
+        setPhase('config')
+      } else if (key.upArrow) {
+        const idx = speciesIndex > 0 ? speciesIndex - 1 : ALL_SPECIES_IDS.length - 1
+        setSpeciesIndex(idx)
+        setOpponentSpeciesId(ALL_SPECIES_IDS[idx]!)
+      } else if (key.downArrow) {
+        const idx = speciesIndex < ALL_SPECIES_IDS.length - 1 ? speciesIndex + 1 : 0
+        setSpeciesIndex(idx)
+        setOpponentSpeciesId(ALL_SPECIES_IDS[idx]!)
+      } else if (key.return) {
+        handleStartBattle(opponentSpeciesId, buddyData.party[0] ? getActiveCreatureLevel() : 5)
+      }
+      return
+    }
+
+    if (phase === 'battle') {
+      if (key.escape) return
+      if (input >= '1' && input <= '4') {
+        const idx = parseInt(input) - 1
+        if (battleState && idx < battleState.playerPokemon.moves.length) {
+          handleAction({ type: 'move', moveIndex: idx })
+        }
+      } else if (input.toLowerCase() === 's') {
+        setPhase('switch')
+      } else if (input.toLowerCase() === 'i') {
+        setPhase('item')
+      }
+      return
+    }
+
+    if (phase === 'switch') {
+      if (key.escape) {
+        setPhase('battle')
+      } else if (input >= '1' && input <= '6') {
+        const idx = parseInt(input) - 1
+        const partyCreatures = getPartyCreatures()
+        if (battleState && partyCreatures[idx] && partyCreatures[idx]!.id !== battleState.playerPokemon.id) {
+          handleAction({ type: 'switch', creatureId: partyCreatures[idx]!.id })
+          setPhase('battle')
+        }
+      }
+      return
+    }
+
+    if (phase === 'item') {
+      if (key.escape) {
+        setPhase('battle')
+      } else if (input >= '1' && input <= '9') {
+        if (battleState) {
+          const idx = parseInt(input) - 1
+          const items = battleState.usableItems
+          if (items[idx]) {
+            handleAction({ type: 'item', itemId: items[idx]!.id })
+            setPhase('battle')
+          }
+        }
+      }
+      return
+    }
+
+    if (phase === 'result') {
+      if (key.return) handleResultContinue()
+      return
+    }
+
+    if (phase === 'learnMoves') {
+      if (input.toLowerCase() === 's') {
+        handleMoveSkip()
+      } else if (input >= '1' && input <= '4') {
+        const idx = parseInt(input) - 1
+        setReplaceIndex(idx)
+        handleMoveLearn(idx)
+      }
+      return
+    }
+
+    if (phase === 'evolution') {
+      if (key.return) handleEvolutionConfirm()
+      return
+    }
+  }, [isActive, phase, speciesIndex, opponentSpeciesId, buddyData, battleState, battleInit, pendingMoves, pendingEvos, onClose, handleRandomBattle, handleStartBattle, handleAction, handleResultContinue, handleMoveLearn, handleMoveSkip, handleEvolutionConfirm])
+
+  // Expose handleInput via ref
+  useEffect(() => {
+    if (inputRef) inputRef.current = { handleInput }
+  }, [handleInput, inputRef])
+
   // Render by phase
   switch (phase) {
     case 'config':
@@ -286,14 +290,13 @@ export function BattleFlow({ buddyData: initialData, onClose, isActive = true }:
       )
 
     case 'configSelect': {
-      const species = getSpeciesData(opponentSpeciesId)
       const selectedIdx = ALL_SPECIES_IDS.indexOf(opponentSpeciesId)
       const startIdx = Math.max(0, Math.min(selectedIdx, ALL_SPECIES_IDS.length - 5))
       const visibleSpecies = ALL_SPECIES_IDS.slice(startIdx, startIdx + 5)
       return (
         <Box flexDirection="column" borderStyle="round" paddingX={1}>
           <Text bold color="ansi:cyan"> 选择对手 </Text>
-          {visibleSpecies.map((sid, i) => {
+          {visibleSpecies.map((sid) => {
             const s = getSpeciesData(sid)
             const isSelected = sid === opponentSpeciesId
             return (
